@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="The world's first interactive Physics-Informed Neural Networks playground. Train neural networks that obey physics laws — right in your browser.">
+<meta property="og:title" content="PINNLab — Interactive Physics-Informed Neural Networks Laboratory">
+<meta property="og:description" content="Train PINNs on 5 PDE systems with real-time visualization. Heat, Wave, Burgers', Poisson, Schrödinger — all in TensorFlow.js.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<title>PINNLab — Interactive Physics-Informed Neural Networks Laboratory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2236;
+  --border: #2a3550;
+  --text: #e2e8f0;
+  --text-dim: #8899b4;
+  --accent: #6366f1;
+  --accent2: #22d3ee;
+  --accent3: #f472b6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(99,102,241,0.08) 0%, transparent 100%);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  font-family: var(--mono);
+}
+
+.header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header .subtitle {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-physics { background: rgba(99,102,241,0.2); color: var(--accent); }
+.badge-ml { background: rgba(34,211,238,0.2); color: var(--accent2); }
+
+/* Layout */
+.app-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr 340px;
+  gap: 0;
+  height: calc(100vh - 85px);
+}
+
+/* Panels */
+.panel {
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.panel:last-child { border-right: none; }
+
+.panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* PDE Selector Cards */
+.pde-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pde-card:hover {
+  border-color: var(--accent);
+  background: var(--surface2);
+}
+
+.pde-card.active {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(34,211,238,0.05));
+  box-shadow: 0 0 20px rgba(99,102,241,0.15);
+}
+
+.pde-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.pde-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pde-card .pde-eq {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+
+.pde-card .pde-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.pde-icon {
+  font-size: 20px;
+}
+
+/* Controls */
+.control-group {
+  margin-bottom: 18px;
+}
+
+.control-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.control-label span {
+  color: var(--accent2);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  background: var(--border);
+  border-radius: 4px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+select {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+select:focus { border-color: var(--accent); }
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), #818cf8);
+  color: white;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+
+.btn-danger {
+  background: rgba(248,113,113,0.15);
+  color: var(--error);
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.btn-danger:hover { background: rgba(248,113,113,0.25); }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Center panel - visualization */
+.viz-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex: 1;
+}
+
+.viz-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.viz-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.viz-card canvas {
+  width: 100%;
+  flex: 1;
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+/* Loss chart area */
+.loss-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  height: 220px;
+}
+
+.loss-section canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Stats Bar */
+.stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--accent2);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Right panel - insights */
+.insight-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.insight-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--accent2);
+}
+
+.insight-card p {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* Architecture diagram */
+.arch-diagram {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 10px 0;
+}
+
+.arch-layer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.arch-node {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.7;
+}
+
+.arch-node.active { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+
+.arch-arrow {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 10px;
+  margin: 4px 0;
+}
+
+/* Physics loss decomposition */
+.loss-decomp {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.loss-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loss-bar-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.loss-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.loss-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.loss-bar-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+  width: 70px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.toggle-row label {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.toggle {
+  width: 40px;
+  height: 22px;
+  background: var(--border);
+  border-radius: 11px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle.on { background: var(--accent); }
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle.on::after { transform: translateX(18px); }
+
+/* Equation display */
+.equation-display {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--accent2);
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  line-height: 1.8;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .app-layout { grid-template-columns: 280px 1fr 300px; }
+}
+
+/* Colorbar */
+.colorbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.colorbar-gradient {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+}
+
+/* Training progress indicator */
+.training-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.3);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.training-indicator.idle { background: rgba(136,153,180,0.1); border-color: var(--border); }
+.training-indicator.running { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); }
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+}
+
+.running .pulse-dot {
+  background: var(--success);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Comparison toggle */
+.comparison-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.comparison-tab {
+  flex: 1;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+
+.comparison-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo">∇²</div>
+    <div>
+      <h1>PINNLab</h1>
+      <div class="subtitle">Interactive Physics-Informed Neural Networks Laboratory</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="badge badge-physics">Physics</span>
+    <span class="badge badge-ml">Machine Learning</span>
+  </div>
+</header>
+
+<div class="app-layout">
+  <!-- LEFT PANEL: Controls -->
+  <div class="panel" id="left-panel">
+    <div class="panel-title">PDE System</div>
+
+    <div id="pde-cards">
+      <div class="pde-card active" data-pde="heat">
+        <div class="pde-card-header">
+          <h3>Heat Equation</h3>
+          <span class="pde-icon">🔥</span>
+        </div>
+        <div class="pde-eq">∂u/∂t = α·∂²u/∂x²</div>
+        <div class="pde-desc">Thermal diffusion in 1D rod. Watch heat spread from initial conditions.</div>
+      </div>
+      <div class="pde-card" data-pde="wave">
+        <div class="pde-card-header">
+          <h3>Wave Equation</h3>
+          <span class="pde-icon">🌊</span>
+        </div>
+        <div class="pde-eq">∂²u/∂t² = c²·∂²u/∂x²</div>
+        <div class="pde-desc">Vibrating string dynamics. Propagation, reflection, interference.</div>
+      </div>
+      <div class="pde-card" data-pde="burgers">
+        <div class="pde-card-header">
+          <h3>Burgers' Equation</h3>
+          <span class="pde-icon">💨</span>
+        </div>
+        <div class="pde-eq">∂u/∂t + u·∂u/∂x = ν·∂²u/∂x²</div>
+        <div class="pde-desc">Nonlinear advection-diffusion. Shock formation and viscous smoothing.</div>
+      </div>
+      <div class="pde-card" data-pde="poisson">
+        <div class="pde-card-header">
+          <h3>Poisson Equation</h3>
+          <span class="pde-icon">⚡</span>
+        </div>
+        <div class="pde-eq">∂²u/∂x² + ∂²u/∂y² = f(x,y)</div>
+        <div class="pde-desc">2D steady-state. Electrostatics, gravitational potential.</div>
+      </div>
+      <div class="pde-card" data-pde="schrodinger">
+        <div class="pde-card-header">
+          <h3>Schrödinger Equation</h3>
+          <span class="pde-icon">⚛️</span>
+        </div>
+        <div class="pde-eq">iℏ·∂ψ/∂t = −(ℏ²/2m)·∂²ψ/∂x² + V·ψ</div>
+        <div class="pde-desc">Quantum probability evolution in a potential well.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="panel-title">Network Architecture</div>
+
+    <div class="control-group">
+      <div class="control-label">Hidden Layers <span id="layers-val">4</span></div>
+      <input type="range" id="layers" min="1" max="8" value="4" step="1">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Neurons per Layer <span id="neurons-val">32</span></div>
+      <input type="range" id="neurons" min="8" max="128" value="32" step="8">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Activation Function</div>
+      <select id="activation">
+        <option value="tanh" selected>tanh (classic PINN)</option>
+        <option value="sin">sin (SIREN)</option>
+        <option value="swish">swish</option>
+        <option value="gelu">GELU</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+    <div class="panel-title">Training Parameters</div>
+
+    <div class="control-group">
+      <div class="control-label">Learning Rate <span id="lr-val">1e-3</span></div>
+      <input type="range" id="lr" min="-5" max="-1" value="-3" step="0.5">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Physics Loss Weight (λ) <span id="lambda-val">1.0</span></div>
+      <input type="range" id="lambda" min="-2" max="2" value="0" step="0.25">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Collocation Points <span id="colloc-val">500</span></div>
+      <input type="range" id="colloc" min="100" max="2000" value="500" step="100">
+    </div>
+    <div class="control-group">
+      <div class="control-label">Boundary Points <span id="bndry-val">100</span></div>
+      <input type="range" id="bndry" min="20" max="500" value="100" step="20">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <label>Fourier Features</label>
+      <div class="toggle" id="fourier-toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+    <div class="toggle-row">
+      <label>Compare: No-Physics Baseline</label>
+      <div class="toggle" id="baseline-toggle" onclick="this.classList.toggle('on')"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-primary" id="train-btn" onclick="startTraining()">
+      <span>▶</span> Start Training
+    </button>
+    <button class="btn btn-danger" id="stop-btn" onclick="stopTraining()" disabled>
+      <span>■</span> Stop Training
+    </button>
+  </div>
+
+  <!-- CENTER PANEL: Visualization -->
+  <div class="viz-panel" id="center-panel">
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-epoch">0</div>
+        <div class="stat-label">Epoch</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-total-loss">—</div>
+        <div class="stat-label">Total Loss</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-physics-loss">—</div>
+        <div class="stat-label">Physics Loss</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-l2-error">—</div>
+        <div class="stat-label">L² Error</div>
+      </div>
+    </div>
+
+    <div class="equation-display" id="equation-display">
+      Loss = L_data + λ · L_physics + L_boundary<br>
+      <span style="font-size:11px; color: var(--text-dim)">L_physics = ‖PDE residual‖² over collocation points</span>
+    </div>
+
+    <div class="viz-grid">
+      <div class="viz-card">
+        <div class="viz-card-title">PINN Prediction u(x,t)</div>
+        <canvas id="canvas-pinn" width="400" height="300"></canvas>
+        <div class="colorbar">
+          <span>min</span>
+          <div class="colorbar-gradient" id="colorbar1" style="background: linear-gradient(90deg, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921);"></div>
+          <span>max</span>
+        </div>
+      </div>
+      <div class="viz-card">
+        <div class="viz-card-title">Reference Solution</div>
+        <canvas id="canvas-ref" width="400" height="300"></canvas>
+        <div class="colorbar">
+          <span>min</span>
+          <div class="colorbar-gradient" style="background: linear-gradient(90deg, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921);"></div>
+          <span>max</span>
+        </div>
+      </div>
+      <div class="viz-card">
+        <div class="viz-card-title">Absolute Error |PINN − Reference|</div>
+        <canvas id="canvas-error" width="400" height="300"></canvas>
+        <div class="colorbar">
+          <span>0</span>
+          <div class="colorbar-gradient" style="background: linear-gradient(90deg, #000428, #004e92, #00c6ff, #f5af19, #f12711);"></div>
+          <span>max err</span>
+        </div>
+      </div>
+      <div class="viz-card">
+        <div class="viz-card-title">PDE Residual Magnitude</div>
+        <canvas id="canvas-residual" width="400" height="300"></canvas>
+        <div class="colorbar">
+          <span>0</span>
+          <div class="colorbar-gradient" style="background: linear-gradient(90deg, #000000, #1a0533, #4a0e6b, #8b1a8a, #d94f8c, #ff9a76);"></div>
+          <span>max res</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="loss-section">
+      <div class="viz-card-title">Training Loss Curves</div>
+      <canvas id="canvas-loss" width="800" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Insights -->
+  <div class="panel" id="right-panel">
+    <div class="panel-title">Training Status</div>
+
+    <div class="training-indicator idle" id="training-indicator">
+      <div class="pulse-dot"></div>
+      <span id="training-status-text">Ready — select a PDE and click Start</span>
+    </div>
+
+    <div class="panel-title">Architecture Visualization</div>
+    <div class="arch-diagram" id="arch-diagram"></div>
+
+    <div class="panel-title">Loss Decomposition</div>
+    <div class="loss-decomp">
+      <div class="loss-bar">
+        <div class="loss-bar-label">Data</div>
+        <div class="loss-bar-track"><div class="loss-bar-fill" id="bar-data" style="width:0%; background: var(--accent);"></div></div>
+        <div class="loss-bar-value" id="val-data">0.000</div>
+      </div>
+      <div class="loss-bar">
+        <div class="loss-bar-label">Physics</div>
+        <div class="loss-bar-track"><div class="loss-bar-fill" id="bar-physics" style="width:0%; background: var(--accent2);"></div></div>
+        <div class="loss-bar-value" id="val-physics">0.000</div>
+      </div>
+      <div class="loss-bar">
+        <div class="loss-bar-label">Boundary</div>
+        <div class="loss-bar-track"><div class="loss-bar-fill" id="bar-boundary" style="width:0%; background: var(--accent3);"></div></div>
+        <div class="loss-bar-value" id="val-boundary">0.000</div>
+      </div>
+      <div class="loss-bar">
+        <div class="loss-bar-label">Total</div>
+        <div class="loss-bar-track"><div class="loss-bar-fill" id="bar-total" style="width:0%; background: var(--success);"></div></div>
+        <div class="loss-bar-value" id="val-total">0.000</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="panel-title">How PINNs Work</div>
+
+    <div class="insight-card" id="insight-pde">
+      <h4>Physics-Informed Loss</h4>
+      <p>Unlike standard neural networks, PINNs add a <strong>physics residual term</strong> to the loss function. The network must satisfy the PDE at random collocation points — enforcing physical laws without labeled data at those points.</p>
+    </div>
+
+    <div class="insight-card">
+      <h4>Automatic Differentiation</h4>
+      <p>TensorFlow.js computes exact derivatives ∂u/∂x, ∂²u/∂x² via the <strong>tf.grad()</strong> chain rule — the same derivatives that appear in the PDE. No finite differences needed.</p>
+    </div>
+
+    <div class="insight-card" id="insight-lambda">
+      <h4>The λ Balance</h4>
+      <p>The physics weight λ controls the trade-off: too low and the network ignores physics (pure data fitting); too high and it struggles with the data term. Watch the loss decomposition bars to find the sweet spot.</p>
+    </div>
+
+    <div class="insight-card" id="insight-dynamic">
+      <h4>Current PDE Info</h4>
+      <p id="insight-pde-text">The <strong>Heat Equation</strong> describes thermal diffusion. The initial temperature distribution smooths out over time as heat flows from hot to cold regions. Diffusivity α controls the speed.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// PINNLab — Core Engine
+// ============================================================
+
+// Global state
+const STATE = {
+  pde: 'heat',
+  training: false,
+  model: null,
+  baselineModel: null,
+  epoch: 0,
+  lossHistory: { total: [], data: [], physics: [], boundary: [] },
+  animFrameId: null
+};
+
+// PDE configurations
+const PDE_CONFIG = {
+  heat: {
+    name: 'Heat Equation',
+    xRange: [0, 1], tRange: [0, 1],
+    alpha: 0.01,
+    // Analytical: u(x,t) = sin(πx) * exp(-α*π²*t)
+    reference: (x, t, alpha) => Math.sin(Math.PI * x) * Math.exp(-alpha * Math.PI * Math.PI * t),
+    initialCondition: (x) => Math.sin(Math.PI * x),
+    info: 'The <strong>Heat Equation</strong> describes thermal diffusion. The initial temperature distribution smooths out over time as heat flows from hot to cold regions. Diffusivity α controls the speed.'
+  },
+  wave: {
+    name: 'Wave Equation',
+    xRange: [0, 1], tRange: [0, 1],
+    c: 1.0,
+    // Analytical: u(x,t) = sin(πx)*cos(πct) (standing wave)
+    reference: (x, t, c) => Math.sin(Math.PI * x) * Math.cos(Math.PI * (c || 1) * t),
+    initialCondition: (x) => Math.sin(Math.PI * x),
+    info: 'The <strong>Wave Equation</strong> models vibrating strings and sound propagation. A standing wave forms from the interplay of forward and backward traveling waves. Wave speed c determines frequency.'
+  },
+  burgers: {
+    name: "Burgers' Equation",
+    xRange: [-1, 1], tRange: [0, 1],
+    nu: 0.01 / Math.PI,
+    // Analytical via Cole-Hopf transform (approximation for visualization)
+    reference: (x, t, nu) => {
+      nu = nu || 0.01 / Math.PI;
+      if (t < 0.001) return -Math.sin(Math.PI * x);
+      // Cole-Hopf approximate
+      const phi1 = Math.exp(-(x - 0) * (x - 0) / (4 * nu * (t + 1)));
+      const phi2 = Math.exp(-(x - 2 * Math.PI) * (x - 2 * Math.PI) / (4 * nu * (t + 1)));
+      return -2 * nu * ((-2 * (x) / (4 * nu * (t + 1))) * phi1 + ((-2 * (x - 2 * Math.PI)) / (4 * nu * (t + 1))) * phi2) / (phi1 + phi2 + 1e-10);
+    },
+    initialCondition: (x) => -Math.sin(Math.PI * x),
+    info: "<strong>Burgers' Equation</strong> combines nonlinear advection with viscous diffusion. It's a simplified model for turbulence. Low viscosity ν creates sharp shock fronts — a challenging test for PINNs."
+  },
+  poisson: {
+    name: 'Poisson Equation',
+    xRange: [0, 1], tRange: [0, 1], // tRange used as y-range for 2D
+    // f(x,y) = -2π²sin(πx)sin(πy), exact: u = sin(πx)sin(πy)
+    reference: (x, y) => Math.sin(Math.PI * x) * Math.sin(Math.PI * y),
+    initialCondition: null,
+    info: 'The <strong>Poisson Equation</strong> is a 2D steady-state PDE. Here we solve ∇²u = f with u = sin(πx)sin(πy) as the exact solution. No time dependence — the PINN learns a spatial field satisfying boundary conditions everywhere.'
+  },
+  schrodinger: {
+    name: 'Schrödinger Equation',
+    xRange: [-5, 5], tRange: [0, 2],
+    // Harmonic oscillator ground state: ψ(x,t) = (1/π)^{1/4} exp(-x²/2) exp(-it/2)
+    reference: (x, t) => {
+      const psi_mag = Math.pow(1 / Math.PI, 0.25) * Math.exp(-x * x / 2);
+      return psi_mag; // Return magnitude for visualization
+    },
+    initialCondition: (x) => Math.pow(1 / Math.PI, 0.25) * Math.exp(-x * x / 2),
+    info: 'The <strong>Schrödinger Equation</strong> governs quantum probability amplitudes. We train on the harmonic oscillator ground state |ψ|². The PINN must learn both the spatial wavefunction shape and its time evolution.'
+  }
+};
+
+// ============================================================
+// UI Initialization
+// ============================================================
+
+function initUI() {
+  // PDE card click handlers
+  document.querySelectorAll('.pde-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.pde-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      STATE.pde = card.dataset.pde;
+      updateEquationDisplay();
+      updateInsights();
+      drawReferenceHeatmap();
+      clearVisualization();
+    });
+  });
+
+  // Slider value displays
+  const sliderConfig = {
+    layers: { el: 'layers-val', format: v => v },
+    neurons: { el: 'neurons-val', format: v => v },
+    lr: { el: 'lr-val', format: v => `1e${v}` },
+    lambda: { el: 'lambda-val', format: v => Math.pow(10, parseFloat(v)).toFixed(v < 0 ? Math.abs(Math.floor(v)) + 1 : 1) },
+    colloc: { el: 'colloc-val', format: v => v },
+    bndry: { el: 'bndry-val', format: v => v }
+  };
+
+  Object.keys(sliderConfig).forEach(id => {
+    const slider = document.getElementById(id);
+    const cfg = sliderConfig[id];
+    slider.addEventListener('input', () => {
+      document.getElementById(cfg.el).textContent = cfg.format(slider.value);
+    });
+  });
+
+  updateEquationDisplay();
+  updateInsights();
+  drawArchDiagram();
+  drawReferenceHeatmap();
+
+  // Update arch diagram when layer/neuron sliders change
+  document.getElementById('layers').addEventListener('input', drawArchDiagram);
+  document.getElementById('neurons').addEventListener('input', drawArchDiagram);
+}
+
+function updateEquationDisplay() {
+  const eq = document.getElementById('equation-display');
+  const pde = STATE.pde;
+  const eqs = {
+    heat: 'L = L_data + λ · ‖∂u/∂t − α·∂²u/∂x²‖² + L_boundary',
+    wave: 'L = L_data + λ · ‖∂²u/∂t² − c²·∂²u/∂x²‖² + L_boundary',
+    burgers: 'L = L_data + λ · ‖∂u/∂t + u·∂u/∂x − ν·∂²u/∂x²‖² + L_boundary',
+    poisson: 'L = L_data + λ · ‖∂²u/∂x² + ∂²u/∂y² − f(x,y)‖² + L_boundary',
+    schrodinger: 'L = L_data + λ · ‖iℏ·∂ψ/∂t + (ℏ²/2m)·∂²ψ/∂x² − V·ψ‖² + L_boundary'
+  };
+  const descs = {
+    heat: 'Physics loss penalizes violation of heat diffusion at collocation points',
+    wave: 'Physics loss penalizes violation of wave propagation at collocation points',
+    burgers: 'Physics loss penalizes violation of advection-diffusion dynamics',
+    poisson: 'Physics loss penalizes violation of Laplacian = source everywhere in domain',
+    schrodinger: 'Physics loss penalizes violation of quantum evolution (magnitude)'
+  };
+  eq.innerHTML = `${eqs[pde]}<br><span style="font-size:11px; color: var(--text-dim)">${descs[pde]}</span>`;
+}
+
+function updateInsights() {
+  const cfg = PDE_CONFIG[STATE.pde];
+  document.getElementById('insight-pde-text').innerHTML = cfg.info;
+}
+
+function drawArchDiagram() {
+  const numLayers = parseInt(document.getElementById('layers').value);
+  const numNeurons = parseInt(document.getElementById('neurons').value);
+  const container = document.getElementById('arch-diagram');
+  const inputDim = STATE.pde === 'poisson' ? 2 : 2; // (x,t) or (x,y)
+
+  let html = '<div style="text-align:center; margin-bottom:8px; font-size:10px; color:var(--text-dim)">Input → Hidden Layers → Output</div>';
+
+  // Input layer
+  html += '<div class="arch-layer">';
+  for (let i = 0; i < inputDim; i++) html += '<div class="arch-node active" style="background:var(--accent2)"></div>';
+  html += '</div>';
+  html += '<div class="arch-arrow">↓ ' + (inputDim === 2 ? '(x, t)' : '(x, y)') + '</div>';
+
+  // Hidden layers
+  const displayNeurons = Math.min(numNeurons, 16);
+  for (let l = 0; l < numLayers; l++) {
+    html += '<div class="arch-layer">';
+    for (let n = 0; n < displayNeurons; n++) {
+      const op = 0.3 + 0.7 * Math.random();
+      html += `<div class="arch-node" style="opacity:${op}"></div>`;
+    }
+    if (numNeurons > 16) html += `<span style="font-size:9px;color:var(--text-dim)">+${numNeurons - 16}</span>`;
+    html += '</div>';
+    html += `<div class="arch-arrow">↓ ${document.getElementById('activation').value}</div>`;
+  }
+
+  // Output layer
+  html += '<div class="arch-layer"><div class="arch-node active" style="background:var(--accent3);width:12px;height:12px"></div></div>';
+  html += '<div class="arch-arrow">↓ u(x,t)</div>';
+
+  // Autodiff branch
+  html += '<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);text-align:center">';
+  html += '<span style="font-size:10px;color:var(--accent2)">tf.grad → ∂u/∂x, ∂u/∂t, ∂²u/∂x² → PDE residual</span>';
+  html += '</div>';
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// Heatmap Rendering
+// ============================================================
+
+const VIRIDIS = [
+  [68,1,84],[72,26,108],[71,47,126],[65,68,135],[57,86,140],
+  [47,103,141],[38,119,140],[31,135,132],[30,150,122],[41,165,105],
+  [70,179,80],[109,190,52],[155,199,28],[204,204,15],[245,207,30],[252,229,63]
+];
+
+const ERROR_CMAP = [
+  [0,4,40],[0,40,80],[0,78,146],[0,120,180],[0,198,255],
+  [128,210,140],[200,200,60],[245,175,25],[241,39,17],[200,20,10]
+];
+
+const RESIDUAL_CMAP = [
+  [0,0,0],[26,5,51],[74,14,107],[139,26,138],[217,79,140],[255,154,118]
+];
+
+function interpolateColormap(cmap, t) {
+  t = Math.max(0, Math.min(1, t));
+  const idx = t * (cmap.length - 1);
+  const lo = Math.floor(idx);
+  const hi = Math.min(lo + 1, cmap.length - 1);
+  const frac = idx - lo;
+  return [
+    Math.round(cmap[lo][0] + frac * (cmap[hi][0] - cmap[lo][0])),
+    Math.round(cmap[lo][1] + frac * (cmap[hi][1] - cmap[lo][1])),
+    Math.round(cmap[lo][2] + frac * (cmap[hi][2] - cmap[lo][2]))
+  ];
+}
+
+function drawHeatmap(canvasId, data, nx, ny, colormap) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Find min/max
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] < min) min = data[i];
+    if (data[i] > max) max = data[i];
+  }
+  const range = max - min || 1;
+
+  const imgData = ctx.createImageData(w, h);
+  const cellW = w / nx;
+  const cellH = h / ny;
+
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const ix = Math.min(Math.floor(px / cellW), nx - 1);
+      const iy = Math.min(Math.floor(py / cellH), ny - 1);
+      const val = data[iy * nx + ix];
+      const t = (val - min) / range;
+      const [r, g, b] = interpolateColormap(colormap, t);
+      const idx = (py * w + px) * 4;
+      imgData.data[idx] = r;
+      imgData.data[idx + 1] = g;
+      imgData.data[idx + 2] = b;
+      imgData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(226,232,240,0.7)';
+  ctx.font = '10px Inter, sans-serif';
+  const cfg = PDE_CONFIG[STATE.pde];
+  const xLabel = 'x →';
+  const yLabel = STATE.pde === 'poisson' ? 'y →' : 't →';
+  ctx.fillText(xLabel, w - 25, h - 5);
+  ctx.save();
+  ctx.translate(12, 30);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(yLabel, 0, 0);
+  ctx.restore();
+}
+
+function drawReferenceHeatmap() {
+  const cfg = PDE_CONFIG[STATE.pde];
+  const nx = 80, ny = 80;
+  const data = new Float32Array(nx * ny);
+  const [x0, x1] = cfg.xRange;
+  const [t0, t1] = cfg.tRange;
+
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x = x0 + (x1 - x0) * i / (nx - 1);
+      const t = t0 + (t1 - t0) * j / (ny - 1);
+      let param;
+      if (STATE.pde === 'heat') param = cfg.alpha;
+      else if (STATE.pde === 'wave') param = cfg.c;
+      else if (STATE.pde === 'burgers') param = cfg.nu;
+      data[j * nx + i] = cfg.reference(x, t, param);
+    }
+  }
+  drawHeatmap('canvas-ref', data, nx, ny, VIRIDIS);
+}
+
+function clearVisualization() {
+  ['canvas-pinn', 'canvas-error', 'canvas-residual'].forEach(id => {
+    const canvas = document.getElementById(id);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0a0e17';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'rgba(136,153,180,0.3)';
+    ctx.font = '13px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Train to visualize', canvas.width / 2, canvas.height / 2);
+    ctx.textAlign = 'start';
+  });
+
+  // Clear loss chart
+  const lossCanvas = document.getElementById('canvas-loss');
+  const lctx = lossCanvas.getContext('2d');
+  lctx.fillStyle = '#0a0e17';
+  lctx.fillRect(0, 0, lossCanvas.width, lossCanvas.height);
+}
+
+// ============================================================
+// Loss Chart
+// ============================================================
+
+function drawLossChart() {
+  const canvas = document.getElementById('canvas-loss');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  const pad = { left: 60, right: 20, top: 10, bottom: 25 };
+
+  ctx.fillStyle = '#0a0e17';
+  ctx.fillRect(0, 0, w, h);
+
+  const hist = STATE.lossHistory;
+  if (hist.total.length < 2) return;
+
+  // Find range (log scale)
+  let allVals = [...hist.total, ...hist.data, ...hist.physics, ...hist.boundary].filter(v => v > 0);
+  if (allVals.length === 0) return;
+  let minLog = Math.log10(Math.min(...allVals));
+  let maxLog = Math.log10(Math.max(...allVals));
+  if (maxLog - minLog < 1) { minLog -= 0.5; maxLog += 0.5; }
+
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(42,53,80,0.5)';
+  ctx.lineWidth = 0.5;
+  for (let p = Math.ceil(minLog); p <= Math.floor(maxLog); p++) {
+    const y = pad.top + plotH * (1 - (p - minLog) / (maxLog - minLog));
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(136,153,180,0.6)';
+    ctx.font = '9px JetBrains Mono, monospace';
+    ctx.fillText(`1e${p}`, 5, y + 3);
+  }
+
+  // Draw curves
+  const colors = {
+    total: '#34d399',
+    data: '#6366f1',
+    physics: '#22d3ee',
+    boundary: '#f472b6'
+  };
+
+  const n = hist.total.length;
+  Object.keys(colors).forEach(key => {
+    const vals = hist[key];
+    ctx.strokeStyle = colors[key];
+    ctx.lineWidth = key === 'total' ? 2 : 1.5;
+    ctx.globalAlpha = key === 'total' ? 1 : 0.8;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+      if (vals[i] <= 0) continue;
+      const x = pad.left + plotW * i / (n - 1);
+      const y = pad.top + plotH * (1 - (Math.log10(vals[i]) - minLog) / (maxLog - minLog));
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Legend
+  const legendX = pad.left + 10;
+  const legendY = pad.top + 12;
+  ctx.font = '9px Inter, sans-serif';
+  Object.keys(colors).forEach((key, i) => {
+    ctx.fillStyle = colors[key];
+    ctx.fillRect(legendX + i * 70, legendY, 12, 3);
+    ctx.fillText(key, legendX + i * 70 + 16, legendY + 4);
+  });
+
+  // Epoch axis
+  ctx.fillStyle = 'rgba(136,153,180,0.5)';
+  ctx.font = '9px Inter, sans-serif';
+  ctx.fillText('Epoch 0', pad.left, h - 5);
+  ctx.fillText(`${n}`, w - pad.right - 20, h - 5);
+}
+
+// ============================================================
+// PINN Training Engine (TensorFlow.js)
+// ============================================================
+
+function createPINNModel() {
+  const numLayers = parseInt(document.getElementById('layers').value);
+  const numNeurons = parseInt(document.getElementById('neurons').value);
+  const actName = document.getElementById('activation').value;
+  const useFourier = document.getElementById('fourier-toggle').classList.contains('on');
+
+  const inputDim = 2; // (x,t) or (x,y)
+  const model = tf.sequential();
+
+  // Fourier feature layer (optional)
+  if (useFourier) {
+    model.add(tf.layers.dense({
+      units: numNeurons,
+      inputShape: [inputDim],
+      activation: 'linear',
+      name: 'fourier_embed'
+    }));
+    // Apply sin activation manually via a lambda-like approach
+    // We'll use a trick: dense + sin activation via custom
+    model.add(tf.layers.dense({ units: numNeurons, activation: actName }));
+  } else {
+    model.add(tf.layers.dense({
+      units: numNeurons,
+      inputShape: [inputDim],
+      activation: actName,
+      kernelInitializer: 'glorotNormal'
+    }));
+  }
+
+  for (let i = 1; i < numLayers; i++) {
+    model.add(tf.layers.dense({
+      units: numNeurons,
+      activation: actName,
+      kernelInitializer: 'glorotNormal'
+    }));
+  }
+
+  model.add(tf.layers.dense({ units: 1, activation: 'linear' }));
+  return model;
+}
+
+function generateCollocationPoints(nColloc, nBndry) {
+  const cfg = PDE_CONFIG[STATE.pde];
+  const [x0, x1] = cfg.xRange;
+  const [t0, t1] = cfg.tRange;
+
+  // Interior collocation points (Latin Hypercube-ish random)
+  const collocX = [];
+  const collocT = [];
+  for (let i = 0; i < nColloc; i++) {
+    collocX.push(x0 + Math.random() * (x1 - x0));
+    collocT.push(t0 + Math.random() * (t1 - t0));
+  }
+
+  // Boundary/initial condition points
+  const bndryX = [];
+  const bndryT = [];
+  const bndryU = [];
+
+  if (STATE.pde === 'poisson') {
+    // Boundary: edges of [0,1]²
+    const nPerSide = Math.floor(nBndry / 4);
+    for (let i = 0; i < nPerSide; i++) {
+      const s = i / (nPerSide - 1);
+      // Bottom: y=0
+      bndryX.push(x0 + s * (x1 - x0)); bndryT.push(t0); bndryU.push(0);
+      // Top: y=1
+      bndryX.push(x0 + s * (x1 - x0)); bndryT.push(t1); bndryU.push(0);
+      // Left: x=0
+      bndryX.push(x0); bndryT.push(t0 + s * (t1 - t0)); bndryU.push(0);
+      // Right: x=1
+      bndryX.push(x1); bndryT.push(t0 + s * (t1 - t0)); bndryU.push(0);
+    }
+  } else {
+    // Initial condition: t=0
+    const nIC = Math.floor(nBndry * 0.6);
+    for (let i = 0; i < nIC; i++) {
+      const x = x0 + (x1 - x0) * i / (nIC - 1);
+      bndryX.push(x);
+      bndryT.push(t0);
+      bndryU.push(cfg.initialCondition(x));
+    }
+    // Boundary conditions: x=x0 and x=x1
+    const nBC = Math.floor(nBndry * 0.2);
+    for (let i = 0; i < nBC; i++) {
+      const t = t0 + (t1 - t0) * i / (nBC - 1);
+      bndryX.push(x0); bndryT.push(t); bndryU.push(0);
+      bndryX.push(x1); bndryT.push(t);
+      if (STATE.pde === 'schrodinger') {
+        bndryU.push(cfg.reference(x1, t));
+      } else {
+        bndryU.push(STATE.pde === 'burgers' ? 0 : 0);
+      }
+    }
+  }
+
+  return {
+    colloc: { x: collocX, t: collocT },
+    bndry: { x: bndryX, t: bndryT, u: bndryU }
+  };
+}
+
+function computePhysicsLoss(model, xTensor, tTensor) {
+  return tf.tidy(() => {
+    const pde = STATE.pde;
+
+    if (pde === 'heat') {
+      const alpha = PDE_CONFIG.heat.alpha;
+      // u_t - alpha * u_xx = 0
+      const uFunc = (x, t) => {
+        const input = tf.concat([x.reshape([-1, 1]), t.reshape([-1, 1])], 1);
+        return model.predict(input).reshape([-1]);
+      };
+
+      // Compute u_t via gradient
+      const u_t_func = (t) => {
+        return tf.tidy(() => {
+          const input = tf.concat([xTensor.reshape([-1, 1]), t.reshape([-1, 1])], 1);
+          const u = model.predict(input).reshape([-1]);
+          return u;
+        });
+      };
+
+      // Use tf.grad for derivatives
+      const input = tf.concat([xTensor.reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u = model.predict(input).reshape([-1]);
+
+      // Numerical derivatives (fast approximation for browser performance)
+      const eps = 0.001;
+      const inputPlusT = tf.concat([xTensor.reshape([-1, 1]), tTensor.add(eps).reshape([-1, 1])], 1);
+      const inputMinusT = tf.concat([xTensor.reshape([-1, 1]), tTensor.sub(eps).reshape([-1, 1])], 1);
+      const u_plus_t = model.predict(inputPlusT).reshape([-1]);
+      const u_minus_t = model.predict(inputMinusT).reshape([-1]);
+      const u_t = u_plus_t.sub(u_minus_t).div(2 * eps);
+
+      const inputPlusX = tf.concat([xTensor.add(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const inputMinusX = tf.concat([xTensor.sub(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u_plus_x = model.predict(inputPlusX).reshape([-1]);
+      const u_minus_x = model.predict(inputMinusX).reshape([-1]);
+      const u_xx = u_plus_x.add(u_minus_x).sub(u.mul(2)).div(eps * eps);
+
+      const residual = u_t.sub(u_xx.mul(alpha));
+      return residual.square().mean();
+
+    } else if (pde === 'wave') {
+      const c = PDE_CONFIG.wave.c;
+      const eps = 0.001;
+      const input = tf.concat([xTensor.reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u = model.predict(input).reshape([-1]);
+
+      // u_tt
+      const iPT = tf.concat([xTensor.reshape([-1, 1]), tTensor.add(eps).reshape([-1, 1])], 1);
+      const iMT = tf.concat([xTensor.reshape([-1, 1]), tTensor.sub(eps).reshape([-1, 1])], 1);
+      const u_tt = model.predict(iPT).reshape([-1]).add(model.predict(iMT).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      // u_xx
+      const iPX = tf.concat([xTensor.add(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const iMX = tf.concat([xTensor.sub(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u_xx = model.predict(iPX).reshape([-1]).add(model.predict(iMX).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      const residual = u_tt.sub(u_xx.mul(c * c));
+      return residual.square().mean();
+
+    } else if (pde === 'burgers') {
+      const nu = PDE_CONFIG.burgers.nu;
+      const eps = 0.001;
+      const input = tf.concat([xTensor.reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u = model.predict(input).reshape([-1]);
+
+      // u_t
+      const iPT = tf.concat([xTensor.reshape([-1, 1]), tTensor.add(eps).reshape([-1, 1])], 1);
+      const iMT = tf.concat([xTensor.reshape([-1, 1]), tTensor.sub(eps).reshape([-1, 1])], 1);
+      const u_t = model.predict(iPT).reshape([-1]).sub(model.predict(iMT).reshape([-1])).div(2 * eps);
+
+      // u_x
+      const iPX = tf.concat([xTensor.add(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const iMX = tf.concat([xTensor.sub(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u_x = model.predict(iPX).reshape([-1]).sub(model.predict(iMX).reshape([-1])).div(2 * eps);
+
+      // u_xx
+      const u_xx = model.predict(iPX).reshape([-1]).add(model.predict(iMX).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      // u_t + u*u_x - nu*u_xx = 0
+      const residual = u_t.add(u.mul(u_x)).sub(u_xx.mul(nu));
+      return residual.square().mean();
+
+    } else if (pde === 'poisson') {
+      const eps = 0.001;
+      const input = tf.concat([xTensor.reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u = model.predict(input).reshape([-1]);
+
+      // u_xx
+      const iPX = tf.concat([xTensor.add(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const iMX = tf.concat([xTensor.sub(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u_xx = model.predict(iPX).reshape([-1]).add(model.predict(iMX).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      // u_yy
+      const iPY = tf.concat([xTensor.reshape([-1, 1]), tTensor.add(eps).reshape([-1, 1])], 1);
+      const iMY = tf.concat([xTensor.reshape([-1, 1]), tTensor.sub(eps).reshape([-1, 1])], 1);
+      const u_yy = model.predict(iPY).reshape([-1]).add(model.predict(iMY).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      // f(x,y) = -2π²sin(πx)sin(πy)
+      const f = xTensor.mul(Math.PI).sin().mul(tTensor.mul(Math.PI).sin()).mul(-2 * Math.PI * Math.PI);
+
+      const residual = u_xx.add(u_yy).sub(f);
+      return residual.square().mean();
+
+    } else if (pde === 'schrodinger') {
+      // Simplified: train on |ψ|² magnitude for the ground state
+      // Loss: u should satisfy stationary state equation
+      const eps = 0.001;
+      const input = tf.concat([xTensor.reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u = model.predict(input).reshape([-1]);
+
+      // u_xx
+      const iPX = tf.concat([xTensor.add(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const iMX = tf.concat([xTensor.sub(eps).reshape([-1, 1]), tTensor.reshape([-1, 1])], 1);
+      const u_xx = model.predict(iPX).reshape([-1]).add(model.predict(iMX).reshape([-1])).sub(u.mul(2)).div(eps * eps);
+
+      // V(x) = 0.5 * x² (harmonic oscillator)
+      const V = xTensor.square().mul(0.5);
+
+      // -0.5 * u_xx + V*u = E*u  (E=0.5 for ground state)
+      const E = 0.5;
+      const lhs = u_xx.mul(-0.5).add(V.mul(u));
+      const rhs = u.mul(E);
+      const residual = lhs.sub(rhs);
+      return residual.square().mean();
+    }
+  });
+}
+
+async function trainStep(model, optimizer, points, lambda) {
+  const losses = {};
+
+  const loss = tf.tidy(() => {
+    const collocX = tf.tensor1d(points.colloc.x);
+    const collocT = tf.tensor1d(points.colloc.t);
+    const bndryInput = tf.concat([
+      tf.tensor1d(points.bndry.x).reshape([-1, 1]),
+      tf.tensor1d(points.bndry.t).reshape([-1, 1])
+    ], 1);
+    const bndryTarget = tf.tensor1d(points.bndry.u).reshape([-1, 1]);
+
+    // Data loss (boundary + initial conditions)
+    const bndryPred = model.predict(bndryInput);
+    const dataLoss = bndryPred.sub(bndryTarget).square().mean();
+
+    // Physics loss
+    const physicsLoss = computePhysicsLoss(model, collocX, collocT);
+
+    // Boundary penalty (extra weight on exact boundaries)
+    const boundaryLoss = dataLoss.mul(0.5);
+
+    losses.data = dataLoss.dataSync()[0];
+    losses.physics = physicsLoss.dataSync()[0];
+    losses.boundary = boundaryLoss.dataSync()[0];
+
+    const totalLoss = dataLoss.add(physicsLoss.mul(lambda)).add(boundaryLoss);
+    losses.total = totalLoss.dataSync()[0];
+
+    return totalLoss;
+  });
+
+  // Manual gradient step
+  const grads = tf.variableGrads(() => {
+    const collocX = tf.tensor1d(points.colloc.x);
+    const collocT = tf.tensor1d(points.colloc.t);
+    const bndryInput = tf.concat([
+      tf.tensor1d(points.bndry.x).reshape([-1, 1]),
+      tf.tensor1d(points.bndry.t).reshape([-1, 1])
+    ], 1);
+    const bndryTarget = tf.tensor1d(points.bndry.u).reshape([-1, 1]);
+
+    const bndryPred = model.predict(bndryInput);
+    const dataLoss = bndryPred.sub(bndryTarget).square().mean();
+    const physicsLoss = computePhysicsLoss(model, collocX, collocT);
+    const boundaryLoss = dataLoss.mul(0.5);
+
+    return dataLoss.add(physicsLoss.mul(lambda)).add(boundaryLoss);
+  });
+
+  optimizer.applyGradients(grads.grads);
+  tf.dispose(grads);
+  tf.dispose(loss);
+
+  return losses;
+}
+
+function getPINNPredictions(model, nx, ny) {
+  return tf.tidy(() => {
+    const cfg = PDE_CONFIG[STATE.pde];
+    const [x0, x1] = cfg.xRange;
+    const [t0, t1] = cfg.tRange;
+
+    const xArr = [];
+    const tArr = [];
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        xArr.push(x0 + (x1 - x0) * i / (nx - 1));
+        tArr.push(t0 + (t1 - t0) * j / (ny - 1));
+      }
+    }
+
+    const input = tf.concat([
+      tf.tensor1d(xArr).reshape([-1, 1]),
+      tf.tensor1d(tArr).reshape([-1, 1])
+    ], 1);
+
+    const pred = model.predict(input).dataSync();
+    return Array.from(pred);
+  });
+}
+
+function getPDEResiduals(model, nx, ny) {
+  return tf.tidy(() => {
+    const cfg = PDE_CONFIG[STATE.pde];
+    const [x0, x1] = cfg.xRange;
+    const [t0, t1] = cfg.tRange;
+    const eps = 0.002;
+
+    const xArr = [];
+    const tArr = [];
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        xArr.push(x0 + (x1 - x0) * i / (nx - 1));
+        tArr.push(t0 + (t1 - t0) * j / (ny - 1));
+      }
+    }
+
+    const xT = tf.tensor1d(xArr);
+    const tT = tf.tensor1d(tArr);
+
+    const mkInput = (x, t) => tf.concat([x.reshape([-1, 1]), t.reshape([-1, 1])], 1);
+
+    const u = model.predict(mkInput(xT, tT)).reshape([-1]);
+    const u_px = model.predict(mkInput(xT.add(eps), tT)).reshape([-1]);
+    const u_mx = model.predict(mkInput(xT.sub(eps), tT)).reshape([-1]);
+    const u_pt = model.predict(mkInput(xT, tT.add(eps))).reshape([-1]);
+    const u_mt = model.predict(mkInput(xT, tT.sub(eps))).reshape([-1]);
+
+    const u_xx = u_px.add(u_mx).sub(u.mul(2)).div(eps * eps);
+    const u_t = u_pt.sub(u_mt).div(2 * eps);
+
+    let residual;
+    if (STATE.pde === 'heat') {
+      residual = u_t.sub(u_xx.mul(PDE_CONFIG.heat.alpha));
+    } else if (STATE.pde === 'wave') {
+      const u_tt = u_pt.add(u_mt).sub(u.mul(2)).div(eps * eps);
+      residual = u_tt.sub(u_xx.mul(PDE_CONFIG.wave.c * PDE_CONFIG.wave.c));
+    } else if (STATE.pde === 'burgers') {
+      const u_x = u_px.sub(u_mx).div(2 * eps);
+      residual = u_t.add(u.mul(u_x)).sub(u_xx.mul(PDE_CONFIG.burgers.nu));
+    } else if (STATE.pde === 'poisson') {
+      const u_yy = u_pt.add(u_mt).sub(u.mul(2)).div(eps * eps);
+      const f = xT.mul(Math.PI).sin().mul(tT.mul(Math.PI).sin()).mul(-2 * Math.PI * Math.PI);
+      residual = u_xx.add(u_yy).sub(f);
+    } else {
+      const V = xT.square().mul(0.5);
+      residual = u_xx.mul(-0.5).add(V.mul(u)).sub(u.mul(0.5));
+    }
+
+    return residual.abs().dataSync();
+  });
+}
+
+function updateVisualization(model) {
+  const nx = 60, ny = 60;
+  const cfg = PDE_CONFIG[STATE.pde];
+
+  // PINN predictions
+  const pinnPred = getPINNPredictions(model, nx, ny);
+  drawHeatmap('canvas-pinn', pinnPred, nx, ny, VIRIDIS);
+
+  // Reference solution
+  const refData = new Float32Array(nx * ny);
+  const [x0, x1] = cfg.xRange;
+  const [t0, t1] = cfg.tRange;
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x = x0 + (x1 - x0) * i / (nx - 1);
+      const t = t0 + (t1 - t0) * j / (ny - 1);
+      let param;
+      if (STATE.pde === 'heat') param = cfg.alpha;
+      else if (STATE.pde === 'wave') param = cfg.c;
+      else if (STATE.pde === 'burgers') param = cfg.nu;
+      refData[j * nx + i] = cfg.reference(x, t, param);
+    }
+  }
+  drawHeatmap('canvas-ref', refData, nx, ny, VIRIDIS);
+
+  // Error heatmap
+  const errorData = new Float32Array(nx * ny);
+  for (let i = 0; i < nx * ny; i++) {
+    errorData[i] = Math.abs(pinnPred[i] - refData[i]);
+  }
+  drawHeatmap('canvas-error', errorData, nx, ny, ERROR_CMAP);
+
+  // PDE residual
+  try {
+    const residuals = getPDEResiduals(model, nx, ny);
+    drawHeatmap('canvas-residual', residuals, nx, ny, RESIDUAL_CMAP);
+  } catch (e) {
+    // Skip if residual computation fails
+  }
+
+  // L2 error
+  let sumSqErr = 0;
+  let sumSqRef = 0;
+  for (let i = 0; i < nx * ny; i++) {
+    sumSqErr += errorData[i] * errorData[i];
+    sumSqRef += refData[i] * refData[i];
+  }
+  const l2Error = Math.sqrt(sumSqErr / (sumSqRef + 1e-10));
+  document.getElementById('stat-l2-error').textContent = l2Error.toExponential(2);
+}
+
+function updateLossDecomp(losses) {
+  const maxLoss = Math.max(losses.data, losses.physics, losses.boundary, losses.total, 1e-10);
+
+  const update = (id, valId, loss, max) => {
+    const pct = Math.min(100, (loss / max) * 100);
+    document.getElementById(id).style.width = pct + '%';
+    document.getElementById(valId).textContent = loss.toExponential(3);
+  };
+
+  update('bar-data', 'val-data', losses.data, maxLoss);
+  update('bar-physics', 'val-physics', losses.physics, maxLoss);
+  update('bar-boundary', 'val-boundary', losses.boundary, maxLoss);
+  update('bar-total', 'val-total', losses.total, maxLoss);
+}
+
+// ============================================================
+// Training Loop
+// ============================================================
+
+async function startTraining() {
+  if (STATE.training) return;
+
+  STATE.training = true;
+  STATE.epoch = 0;
+  STATE.lossHistory = { total: [], data: [], physics: [], boundary: [] };
+
+  document.getElementById('train-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('training-indicator').className = 'training-indicator running';
+  document.getElementById('training-status-text').textContent = 'Training in progress...';
+
+  // Clean up old model
+  if (STATE.model) { STATE.model.dispose(); }
+
+  // Create new model
+  STATE.model = createPINNModel();
+
+  const lr = Math.pow(10, parseFloat(document.getElementById('lr').value));
+  const lambda = Math.pow(10, parseFloat(document.getElementById('lambda').value));
+  const nColloc = parseInt(document.getElementById('colloc').value);
+  const nBndry = parseInt(document.getElementById('bndry').value);
+
+  const optimizer = tf.train.adam(lr);
+
+  // Generate points
+  let points = generateCollocationPoints(nColloc, nBndry);
+
+  const maxEpochs = 5000;
+  const vizInterval = 25;
+  const resampleInterval = 200;
+
+  for (let epoch = 0; epoch < maxEpochs && STATE.training; epoch++) {
+    // Resample collocation points periodically
+    if (epoch > 0 && epoch % resampleInterval === 0) {
+      points = generateCollocationPoints(nColloc, nBndry);
+    }
+
+    const losses = await trainStep(STATE.model, optimizer, points, lambda);
+
+    STATE.epoch = epoch + 1;
+    STATE.lossHistory.total.push(losses.total);
+    STATE.lossHistory.data.push(losses.data);
+    STATE.lossHistory.physics.push(losses.physics);
+    STATE.lossHistory.boundary.push(losses.boundary);
+
+    // Update stats
+    document.getElementById('stat-epoch').textContent = STATE.epoch;
+    document.getElementById('stat-total-loss').textContent = losses.total.toExponential(2);
+    document.getElementById('stat-physics-loss').textContent = losses.physics.toExponential(2);
+
+    updateLossDecomp(losses);
+    drawLossChart();
+
+    // Update visualization periodically
+    if (epoch % vizInterval === 0 || epoch === 0) {
+      updateVisualization(STATE.model);
+      document.getElementById('training-status-text').textContent =
+        `Epoch ${STATE.epoch} | Loss: ${losses.total.toExponential(2)} | Physics: ${losses.physics.toExponential(2)}`;
+    }
+
+    // Yield to browser
+    await tf.nextFrame();
+  }
+
+  // Final visualization
+  if (STATE.model) {
+    updateVisualization(STATE.model);
+  }
+
+  stopTraining();
+}
+
+function stopTraining() {
+  STATE.training = false;
+  document.getElementById('train-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('training-indicator').className = 'training-indicator idle';
+  document.getElementById('training-status-text').textContent =
+    STATE.epoch > 0
+      ? `Stopped at epoch ${STATE.epoch} — L² Error: ${document.getElementById('stat-l2-error').textContent}`
+      : 'Ready — select a PDE and click Start';
+}
+
+// ============================================================
+// Initialize
+// ============================================================
+
+window.addEventListener('DOMContentLoaded', () => {
+  initUI();
+  clearVisualization();
+
+  // Set TF.js backend
+  tf.setBackend('webgl').then(() => {
+    console.log('PINNLab: WebGL backend ready');
+  }).catch(() => {
+    tf.setBackend('cpu').then(() => {
+      console.log('PINNLab: CPU backend (WebGL unavailable)');
+    });
+  });
+});
+</script>
+</body>
+</html>
